@@ -1,0 +1,592 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// Authentication & Users
+// ============================================
+
+model User {
+  id               String    @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String    @unique
+  emailVerified    DateTime?
+  password         String
+  image            String?
+  status           String    @default("active") // active, inactive, suspended
+  suspensionReason String?   @db.Text // Reason for suspension (required when status is suspended)
+  themePreference  String?   @default("light") // light, dark, system
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  accounts               Account[]
+  sessions               Session[]
+  activeLogin            ActiveLogin?
+  ipAddresses            UserIPAddress[]
+  loginVerificationCodes LoginVerificationCode[]
+  roles                  UserRole[]
+  serviceLogs            ServiceLog[]
+  invoices               Invoice[]
+  payments               Payment[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ActiveLogin {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String? // IP address of the login session
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([ipAddress])
+}
+
+model UserIPAddress {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress  String
+  country    String?
+  region     String?
+  city       String?
+  latitude   Decimal? @db.Decimal(10, 7)
+  longitude  Decimal? @db.Decimal(10, 7)
+  isp        String?
+  userAgent  String?  @db.Text
+  isBanned   Boolean  @default(false)
+  isApproved Boolean  @default(false)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, ipAddress])
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([isBanned])
+  @@index([isApproved])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model LoginVerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  ipAddress String
+  expires   DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([code])
+  @@index([expires])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([name])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "customers.create", "invoices.send"
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@index([key])
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ============================================
+// Customers & Vehicles
+// ============================================
+
+model Customer {
+  id               String   @id @default(cuid())
+  customerType     String   @default("person") // person, business
+  firstName        String?
+  lastName         String?
+  companyName      String?
+  contactFirstName String?
+  contactLastName  String?
+  phone            String?
+  fax              String?
+  email            String?
+  streetAddress    String?
+  city             String?
+  state            String?
+  zip              String?
+  taxExempt        Boolean  @default(false)
+  notes            String?  @db.Text
+  status           String   @default("active") // active, inactive
+  tags             String[] // Array of tags
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  vehicles    Vehicle[]
+  serviceLogs ServiceLog[]
+  invoices    Invoice[]
+  payments    Payment[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model Vehicle {
+  id                   String   @id @default(cuid())
+  customerId           String
+  vehicleType          String // car, truck, bus, motorcycle, atv, moped, trailer, other
+  isFleetVehicle       Boolean  @default(false)
+  vehicleTag           String? // Bus #12, Truck #5, etc.
+  year                 Int?
+  make                 String?
+  model                String?
+  trim                 String?
+  vin                  String?
+  licensePlate         String?
+  engine               String? // Engine Model
+  displacement         Decimal? @db.Decimal(5, 2) // Engine Displacement in Liters (formatted as x.xx)
+  brakeSystemType      String? // Brake System Type
+  fuelTypePrimary      String? // Fuel Type - Primary
+  registrationDocument String? // File path or URL to registration document
+  insuranceDocument    String? // File path or URL to insurance document
+  notes                String?  @db.Text
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceLogs ServiceLog[]
+  invoices    Invoice[]
+
+  @@index([customerId])
+  @@index([vin])
+  @@index([licensePlate])
+}
+
+// ============================================
+// Service Logs
+// ============================================
+
+model ServiceLog {
+  id            String    @id @default(cuid())
+  customerId    String
+  vehicleId     String
+  status        String    @default("draft") // draft, in_progress, complete, returned, invoiced
+  title         String?
+  category      String?
+  symptoms      String?   @db.Text // Customer's original complaints (appears on invoice)
+  diagnosis     String?   @db.Text
+  internalNotes String?   @db.Text // Internal use only (not on invoice)
+  details       String?   @db.Text // Work performed summary
+  mileage       Int?
+  occurredAt    DateTime  @default(now())
+  submittedAt   DateTime?
+  returnedAt    DateTime?
+  returnReason  String?   @db.Text
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  customer    Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdBy   User?                  @relation(fields: [createdById], references: [id])
+  lineItems   ServiceLogLineItem[]
+  attachments ServiceLogAttachment[]
+  invoices    Invoice[]
+
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([occurredAt])
+}
+
+model ServiceLogLineItem {
+  id           String   @id @default(cuid())
+  serviceLogId String
+  type         String // labor, part, fee, discount
+  description  String   @db.Text
+  partNumber   String?
+  quantity     Decimal  @default(0) @db.Decimal(10, 2)
+  unitPrice    Decimal  @default(0) @db.Decimal(10, 2)
+  hours        Decimal? @db.Decimal(5, 2) // For labor items
+  rate         Decimal? @db.Decimal(10, 2) // For labor items
+  total        Decimal  @default(0) @db.Decimal(10, 2)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  serviceLog ServiceLog @relation(fields: [serviceLogId], references: [id], onDelete: Cascade)
+
+  @@index([serviceLogId])
+  @@index([type])
+}
+
+model ServiceLogAttachment {
+  id           String   @id @default(cuid())
+  serviceLogId String
+  fileName     String
+  filePath     String
+  fileType     String?
+  fileSize     Int?
+  uploadedAt   DateTime @default(now())
+
+  serviceLog ServiceLog @relation(fields: [serviceLogId], references: [id], onDelete: Cascade)
+
+  @@index([serviceLogId])
+}
+
+// ============================================
+// Invoices & Payments
+// ============================================
+
+model Invoice {
+  id            String    @id @default(cuid())
+  customerId    String
+  vehicleId     String?
+  serviceLogId  String?
+  invoiceNumber String    @unique
+  status        String    @default("draft") // draft, sent, partially_paid, paid, void
+  dueDate       DateTime?
+  terms         String?
+  subtotal      Decimal   @default(0) @db.Decimal(10, 2)
+  tax           Decimal   @default(0) @db.Decimal(10, 2)
+  fees          Decimal   @default(0) @db.Decimal(10, 2)
+  discount      Decimal   @default(0) @db.Decimal(10, 2)
+  total         Decimal   @default(0) @db.Decimal(10, 2)
+  notes         String?   @db.Text
+  sentAt        DateTime?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  customer   Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicle    Vehicle?          @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  serviceLog ServiceLog?       @relation(fields: [serviceLogId], references: [id], onDelete: SetNull)
+  createdBy  User?             @relation(fields: [createdById], references: [id])
+  lineItems  InvoiceLineItem[]
+  payments   Payment[]
+
+  @@index([customerId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  type        String // labor, part, fee, discount
+  description String   @db.Text
+  quantity    Int      @default(1) // Whole number for parts/fees
+  unitPrice   Decimal  @default(0) @db.Decimal(10, 2)
+  discount    Decimal  @default(0) @db.Decimal(10, 2) // Discount for this line item
+  hours       Decimal? @db.Decimal(5, 2) // For labor items
+  rate        Decimal? @db.Decimal(10, 2) // For labor items
+  total       Decimal  @default(0) @db.Decimal(10, 2)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([type])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  customerId    String
+  amount        Decimal  @db.Decimal(10, 2)
+  method        String // cash, check, credit_card, debit_card, ach, other
+  reference     String? // Check number, transaction ID, etc.
+  notes         String?  @db.Text
+  receivedAt    DateTime @default(now())
+  processedById String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  processedBy User?    @relation(fields: [processedById], references: [id])
+
+  @@index([invoiceId])
+  @@index([customerId])
+  @@index([receivedAt])
+}
+
+// ============================================
+// Parts & Services Catalog
+// ============================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  catalogItems CatalogItem[]
+  packages     Package[]
+
+  @@index([name])
+}
+
+model CatalogItem {
+  id             String    @id @default(cuid())
+  type           String // "part" or "service"
+  name           String? // Required for services, optional for parts
+  code           String?   @unique // Service code (e.g., "OIL-CHANGE") or part number
+  partNumber     String? // Alternative part number field (for parts that use this instead of code)
+  description    String    @db.Text
+  price          Decimal   @db.Decimal(10, 2) // unitPrice for parts, rate for services
+  cost           Decimal?  @db.Decimal(10, 2) // Internal cost for profit tracking (parts only)
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // Part-specific fields
+  manufacturer   String? // Parts only
+  location       String? // Warehouse location (parts only)
+  trackInventory Boolean   @default(false) // Parts only
+  quantityOnHand Int? // Parts only - null = unlimited when trackInventory is false
+  minQuantity    Int? // Reorder threshold (parts only)
+  // Service-specific fields
+  defaultHours   Decimal?  @db.Decimal(5, 2) // Default hours if hourly (services only)
+  isFlatRate     Boolean   @default(false) // true = flat rate, false = hourly (services only)
+  status         String    @default("active") // active, inactive, discontinued
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  packageItems PackageItem[]
+
+  @@index([type])
+  @@index([code])
+  @@index([partNumber])
+  @@index([categoryId])
+  @@index([status])
+}
+
+// ============================================
+// Packages
+// ============================================
+
+model Package {
+  id            String    @id @default(cuid())
+  name          String
+  code          String?   @unique // Package code (e.g., "OIL-CHANGE-PKG")
+  description   String?   @db.Text
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  totalPrice    Decimal   @db.Decimal(10, 2) // Total package price (can override sum of items)
+  useItemPrices Boolean   @default(true) // If true, sum item prices; if false, use totalPrice
+  status        String    @default("active") // active, inactive
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items PackageItem[]
+
+  @@index([code])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model PackageItem {
+  id            String   @id @default(cuid())
+  packageId     String
+  catalogItemId String
+  quantity      Decimal  @default(1) @db.Decimal(10, 2)
+  priceOverride Decimal? @db.Decimal(10, 2) // Override item price for this package
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  package     Package     @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+
+  @@index([packageId])
+  @@index([catalogItemId])
+}
+
+// ============================================
+// Settings
+// ============================================
+
+model ShopProfile {
+  id            String   @id @default(cuid())
+  shopName      String
+  streetAddress String?
+  city          String?
+  state         String?
+  zip           String?
+  phone         String?
+  fax           String?
+  email         String?
+  website       String?
+  taxId         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([id])
+}
+
+model BillingRule {
+  id                  String   @id @default(cuid())
+  name                String
+  taxRate             Decimal  @default(0) @db.Decimal(5, 4) // e.g., 0.0825 for 8.25%
+  taxExemptStates     String[]
+  defaultTerms        String?  @db.Text
+  invoiceNumberPrefix String?
+  invoiceNumberFormat String? // e.g., "INV-{year}-{number}"
+  nextInvoiceNumber   Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([id])
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  subject   String
+  bodyHtml  String   @db.Text
+  variables String[] // Available template variables
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model InvoiceTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  bodyHtml  String   @db.Text
+  variables String[] // Available template variables
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model SmtpSettings {
+  id          String   @id @default(cuid())
+  host        String
+  port        Int      @default(587)
+  username    String
+  passwordRef String? // Reference to encrypted password
+  encryption  String   @default("tls") // tls, ssl, none
+  fromName    String
+  fromEmail   String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([id])
+}
+
+model OpenRouterSettings {
+  id           String   @id @default(cuid())
+  apiKeyRef    String? // Reference to encrypted API key
+  defaultModel String   @default("openai/gpt-4o-mini")
+  maxTokens    Int      @default(4096)
+  temperature  Decimal  @default(0.7) @db.Decimal(3, 2)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([id])
+}

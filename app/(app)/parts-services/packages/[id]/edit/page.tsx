@@ -1,0 +1,546 @@
+"use client"
+
+import { use, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react"
+import Link from "next/link"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+
+interface Category {
+  id: string
+  name: string
+}
+
+interface CatalogItem {
+  id: string
+  type: "part" | "service"
+  partNumber: string | null
+  code: string | null
+  name: string | null
+  description: string
+  price: number
+  isFlatRate?: boolean
+}
+
+type Part = CatalogItem
+type Service = CatalogItem
+
+interface PackageItem {
+  type: "part" | "service"
+  itemId: string
+  quantity: string
+  priceOverride: string
+}
+
+export default function EditPackagePage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = use(params)
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [parts, setParts] = useState<Part[]>([])
+  const [services, setServices] = useState<Service[]>([])
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false)
+  const [newItemType, setNewItemType] = useState<"part" | "service">("part")
+  const [newItemId, setNewItemId] = useState("")
+  const [newItemQuantity, setNewItemQuantity] = useState("1")
+  const [newItemPriceOverride, setNewItemPriceOverride] = useState("")
+
+  const [formData, setFormData] = useState({
+    name: "",
+    code: "",
+    description: "",
+    categoryId: "uncategorized",
+    totalPrice: "",
+    useItemPrices: true,
+    status: "active",
+    notes: "",
+    items: [] as PackageItem[],
+  })
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        const [packageRes, categoriesRes, partsRes, servicesRes] = await Promise.all([
+          fetch(`/api/packages/${id}`),
+          fetch("/api/categories"),
+          fetch("/api/catalog-items?type=part"),
+          fetch("/api/catalog-items?type=service"),
+        ])
+
+        if (packageRes.ok) {
+          const pkg = await packageRes.json()
+          setFormData({
+            name: pkg.name,
+            code: pkg.code || "",
+            description: pkg.description || "",
+            categoryId: pkg.categoryId || "uncategorized",
+            totalPrice: pkg.totalPrice?.toString() || "",
+            useItemPrices: pkg.useItemPrices,
+            status: pkg.status,
+            notes: pkg.notes || "",
+            items: pkg.items.map((item: any) => ({
+              type: item.catalogItem?.type || "part",
+              itemId: item.catalogItemId,
+              quantity: item.quantity.toString(),
+              priceOverride: item.priceOverride?.toString() || "",
+            })),
+          })
+        }
+
+        if (categoriesRes.ok) {
+          const cats = await categoriesRes.json()
+          setCategories(cats)
+        }
+        if (partsRes.ok) {
+          const partsData = await partsRes.json()
+          setParts(partsData.filter((p: Part) => p.price > 0))
+        }
+        if (servicesRes.ok) {
+          const servicesData = await servicesRes.json()
+          setServices(servicesData.filter((s: Service) => s.status === "active"))
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        setError("Failed to load package data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [id])
+
+  const handleAddItem = () => {
+    if (!newItemId || !newItemQuantity) return
+
+    setFormData({
+      ...formData,
+      items: [
+        ...formData.items,
+        {
+          type: newItemType,
+          itemId: newItemId,
+          quantity: newItemQuantity,
+          priceOverride: newItemPriceOverride,
+        },
+      ],
+    })
+
+    setNewItemId("")
+    setNewItemQuantity("1")
+    setNewItemPriceOverride("")
+    setShowAddItemDialog(false)
+  }
+
+  const handleRemoveItem = (index: number) => {
+    setFormData({
+      ...formData,
+      items: formData.items.filter((_, i) => i !== index),
+    })
+  }
+
+  const getItemName = (item: PackageItem) => {
+    if (item.type === "part") {
+      const part = parts.find((p) => p.id === item.itemId)
+      return part ? `${part.partNumber || "N/A"} - ${part.description}` : "Unknown Part"
+    } else {
+      const service = services.find((s) => s.id === item.itemId)
+      return service ? `${service.code || "N/A"} - ${service.name}` : "Unknown Service"
+    }
+  }
+
+  const getItemPrice = (item: PackageItem) => {
+    if (item.priceOverride) {
+      return parseFloat(item.priceOverride)
+    }
+    if (item.type === "part") {
+      const part = parts.find((p) => p.id === item.itemId)
+      return part ? Number(part.price) : 0
+    } else {
+      const service = services.find((s) => s.id === item.itemId)
+      return service ? Number(service.price) : 0
+    }
+  }
+
+  const calculateTotal = () => {
+    return formData.items.reduce((sum, item) => {
+      return sum + getItemPrice(item) * Number(item.quantity || "1")
+    }, 0)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/packages/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          totalPrice: formData.useItemPrices ? null : formData.totalPrice,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to update package")
+      }
+
+      const data = await response.json()
+      router.push(`/parts-services/packages/${data.id}`)
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred")
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 -mt-2">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <Button variant="ghost" size="icon" asChild className="self-start">
+          <Link href={`/parts-services/packages/${id}`}>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-bold tracking-tight">Edit Package</h1>
+          <p className="text-muted-foreground mt-1">
+            Update package information and items
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Package Information</CardTitle>
+            <CardDescription>Basic information about the package</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {error}
+              </div>
+            )}
+
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-2 min-w-0">
+                <Label htmlFor="name">Package Name *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Oil Change Package"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2 min-w-0">
+                <Label htmlFor="code">Package Code</Label>
+                <Input
+                  id="code"
+                  name="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  placeholder="Auto-generated if left blank"
+                  className="w-full uppercase"
+                />
+                <p className="text-xs text-muted-foreground">Leave blank to auto-generate from package name</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 min-w-0">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Package description"
+                rows={3}
+                className="w-full resize-y"
+              />
+            </div>
+
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-2 min-w-0">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.categoryId}
+                  onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 min-w-0">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2 min-w-0">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Internal notes"
+                rows={2}
+                className="w-full resize-y"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Package Items</CardTitle>
+                <CardDescription>Add parts and services to this package</CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddItemDialog(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Item
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {formData.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No items added yet. Click "Add Item" to get started.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {formData.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{getItemName(item)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {item.type === "part" ? "Part" : "Service"} • Qty: {item.quantity} • $
+                        {getItemPrice(item).toFixed(2)} each
+                        {item.priceOverride && <span className="text-xs"> (override)</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="font-semibold">
+                          ${(getItemPrice(item) * Number(item.quantity || "1")).toFixed(2)}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveItem(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {formData.items.length > 0 && (
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="useItemPrices"
+                        checked={formData.useItemPrices}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, useItemPrices: checked === true })
+                        }
+                      />
+                      <Label htmlFor="useItemPrices" className="cursor-pointer">
+                        Auto-calculate total from items
+                      </Label>
+                    </div>
+                    {formData.useItemPrices && (
+                      <p className="text-xs text-muted-foreground ml-6">
+                        Total: ${calculateTotal().toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  {!formData.useItemPrices && (
+                    <div className="space-y-2 min-w-0 flex-1 max-w-xs">
+                      <Label htmlFor="totalPrice">Total Price *</Label>
+                      <Input
+                        id="totalPrice"
+                        name="totalPrice"
+                        type="number"
+                        step="0.01"
+                        required={!formData.useItemPrices}
+                        value={formData.totalPrice}
+                        onChange={(e) => setFormData({ ...formData, totalPrice: e.target.value })}
+                        placeholder="0.00"
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end">
+          <Button variant="outline" type="button" asChild className="w-full sm:w-auto">
+            <Link href={`/parts-services/packages/${id}`}>Cancel</Link>
+          </Button>
+          <Button type="submit" disabled={isSubmitting || formData.items.length === 0} className="w-full sm:w-auto">
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Update Package"
+            )}
+          </Button>
+        </div>
+      </form>
+
+      <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Item to Package</DialogTitle>
+            <DialogDescription>Select a part or service to add to this package</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Item Type</Label>
+              <Select value={newItemType} onValueChange={(value) => setNewItemType(value as "part" | "service")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="part">Part</SelectItem>
+                  <SelectItem value="service">Service</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{newItemType === "part" ? "Part" : "Service"} *</Label>
+              <Select value={newItemId} onValueChange={setNewItemId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={`Select a ${newItemType}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {newItemType === "part"
+                    ? parts.map((part) => (
+                        <SelectItem key={part.id} value={part.id}>
+                          {part.partNumber || "N/A"} - {part.description} (${Number(part.price).toFixed(2)})
+                        </SelectItem>
+                      ))
+                    : services.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.code || "N/A"} - {service.name} (${Number(service.price).toFixed(2)}
+                          {service.isFlatRate ? "" : "/hr"})
+                        </SelectItem>
+                      ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Quantity *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={newItemQuantity}
+                onChange={(e) => setNewItemQuantity(e.target.value)}
+                placeholder="1"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Price Override (optional)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newItemPriceOverride}
+                onChange={(e) => setNewItemPriceOverride(e.target.value)}
+                placeholder="Leave blank to use item price"
+              />
+              <p className="text-xs text-muted-foreground">
+                Override the default price for this item in the package
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddItem} disabled={!newItemId || !newItemQuantity}>
+              Add Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+

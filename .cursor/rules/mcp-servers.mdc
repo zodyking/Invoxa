@@ -1,0 +1,25 @@
+## Automatic Activation
+These rules are always active for this Cursor project. 
+
+## Default Workflow
+Every new conversation must begin with **Sequential Thinking** to determine scope and which tools are required.
+
+## MANDATORY TOOL USAGE
+- Sequential Thinking: mandatory for any multi-step work, debugging, refactors, or research.
+- Shadcn: mandatory for all shadcn/ui component implementation and UI composition.
+- Prisma: mandatory for all Prisma + Postgres schema, migrations, queries, relations, indexes.
+- Context7: mandatory whenever there is uncertainty about APIs, versions, patterns, or best practices.
+
+## SEQUENTIAL THINKING
+- Break work into explicit steps
+- Track assumptions, constraints, and decisions
+- Note alternatives when meaningful
+- Revise the plan when new info appears
+
+## Implementation Notes (Cursor IDE Mode)
+- Operate repo-first: prefer editing files over providing large pasteable snippets
+- Create/edit/delete files as needed; keep changes minimal and consistent with repo conventions
+- Run relevant commands (migrate, lint, typecheck, test, dev/build) and fix failures
+- Summarize results as: what changed, which files, what commands ran, how to verify---
+alwaysApply: true
+---

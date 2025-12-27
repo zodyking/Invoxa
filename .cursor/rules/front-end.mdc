@@ -1,0 +1,81 @@
+---
+alwaysApply: true
+---
+## SPACING + LAYOUT SYSTEM (NO RANDOM GAPS)
+- Use a consistent spacing scale (4/8pt rhythm) across the app.
+- Standardize vertical section spacing:
+  - Pages: consistent top/bottom padding
+  - Sections: consistent gap between sections
+  - Components: consistent internal padding
+- Prefer whitespace over borders:
+  - Borders only for separation when scanning is required (tables, dense lists).
+  - Otherwise use spacing + subtle background surfaces.
+- Alignment rules:
+  - All pages must align to a shared container/grid.
+  - Buttons/inputs must align to each other (height + baseline + spacing).
+- If the repo lacks layout primitives, create minimal ones (Container/Section/Stack) and use them consistently.
+
+---
+
+## FLUID RESPONSIVENESS (FIX “NOT INLINE ON PHONE”) — REQUIRED
+### Hard rules (prevent overflow/misalignment)
+- Mobile-first always:
+  - Start with stacked layout; progressively enhance to multi-column.
+- Ban fragile sizing:
+  - No fixed widths/heights for layout containers (px-only layouts cause phone breakage).
+  - Prefer `w-full`, `max-w-*`, `%`, and content-aware sizing.
+- Flex/grid correctness:
+  - Any flex row with text + controls must include `min-w-0` on shrinking children.
+  - Use `flex-wrap` intentionally; define what wraps and how (don’t let the browser decide randomly).
+  - For grids: default `grid-cols-1` then add columns at breakpoints.
+- Long-content hardening is mandatory:
+  - Emails/IDs/names must not expand the layout: use `truncate`, `break-words`, or `line-clamp`.
+- Touch UX:
+  - Tap targets >= 44px on mobile; spacing between actions must prevent mis-taps.
+- Verification is mandatory before “done”:
+  - Validate these widths: 360, 390, 768, 1024+.
+  - No horizontal scrolling at any width.
+
+### Fluid scaling requirements (not just breakpoints)
+- Use fluid typography (clamp) for headings and key density changes.
+- Use fluid container gutters:
+  - Side padding must scale with viewport (no “desktop padding” copied to mobile).
+- Use density switching:
+  - Tables/lists must have compact/mobile variants (stack rows, move secondary fields below).
+
+---
+
+## COLOR + SURFACE RULES (DESIGNED, NOT DEFAULT)
+- Use a token-driven palette (CSS variables) and enforce:
+  - 1 accent color max (plus neutrals).
+  - Semantic colors for success/warn/error.
+- Contrast must be checked in both light/dark (if supported).
+- Shadows/radii must be standardized (don’t mix styles).
+- Avoid “gray-on-gray mush”: ensure text contrast and clear grouping.
+
+---
+
+## COMPONENT COMPOSITION (shadcn/ui)
+- shadcn/ui is the base layer for UI components and patterns. :contentReference[oaicite:2]{index=2}
+- Forms:
+  - Always use a consistent form pattern: labels, help text, inline errors, disabled/loading submit.
+- Feedback:
+  - Every action needs success + error feedback, not silent updates.
+- State completeness:
+  - Loading, empty, error, and no-permission states are mandatory for each data view.
+
+---
+
+## NEXT.JS + FRONTEND QUALITY REQUIREMENTS
+- Minimize `use client`, `useEffect`, and large client state; favor server-first patterns and Suspense boundaries. :contentReference[oaicite:3]{index=3}
+- Use next/image for images and prevent layout shift (explicit sizing). :contentReference[oaicite:4]{index=4}
+
+---
+
+## CURSOR IDE BEHAVIOR (UI TASKS)
+- Implement by editing files in-repo (not “copy/paste code dumps” by default).
+- When UI work is done, report:
+  - what changed, which files, responsive checks performed, and how to verify in the browser.
+---
+alwaysApply: true
+---
