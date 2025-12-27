@@ -20,8 +20,7 @@ export async function GET(request: NextRequest) {
       include: {
         items: {
           include: {
-            part: true,
-            service: true,
+            catalogItem: true,
           },
         },
         category: true,
@@ -95,9 +94,7 @@ export async function POST(request: NextRequest) {
             updatedAt: packageData.updatedAt ? new Date(packageData.updatedAt) : new Date(),
             items: items ? {
               create: items.map((item: any) => ({
-                type: item.type,
-                partId: item.partId,
-                serviceId: item.serviceId,
+                catalogItemId: item.catalogItemId || item.partId || item.serviceId,
                 quantity: parseFloat(item.quantity?.toString() || "1"),
                 priceOverride: item.priceOverride ? parseFloat(item.priceOverride.toString()) : null,
                 sortOrder: item.sortOrder || 0,

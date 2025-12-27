@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
         email: "",
         website: "",
         taxId: "",
-        notes: "",
       })
     }
 
@@ -65,7 +64,6 @@ export async function PATCH(request: NextRequest) {
       email,
       website,
       taxId,
-      notes,
     } = body
 
     // Get or create shop profile
@@ -85,7 +83,6 @@ export async function PATCH(request: NextRequest) {
             email,
             website,
             taxId,
-            notes,
           },
         })
       : await prisma.shopProfile.create({
@@ -100,7 +97,6 @@ export async function PATCH(request: NextRequest) {
             email,
             website,
             taxId,
-            notes,
           },
         })
 

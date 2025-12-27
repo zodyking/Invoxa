@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +27,7 @@ interface Vehicle {
   vehicleTag: string | null
 }
 
-export default function NewServiceLogPage() {
+function NewServiceLogPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const vehicleId = searchParams.get("vehicleId")
@@ -781,5 +781,13 @@ export default function NewServiceLogPage() {
         </form>
       )}
     </div>
+  )
+}
+
+export default function NewServiceLogPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-12">Loading...</div>}>
+      <NewServiceLogPageContent />
+    </Suspense>
   )
 }

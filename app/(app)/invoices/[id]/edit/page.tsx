@@ -29,6 +29,7 @@ interface Invoice {
   fees: number
   discount: number
   total: number
+  createdAt: string
   lineItems: LineItem[]
 }
 

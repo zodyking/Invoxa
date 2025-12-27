@@ -34,6 +34,7 @@ interface CatalogItem {
   price: number
   isFlatRate?: boolean
   defaultHours?: number | null
+  status: string
 }
 
 type Part = CatalogItem
@@ -596,7 +597,7 @@ export default function EditServiceLogPage({
                     setNewItemServiceId(value)
                     const service = services.find((s) => s.id === value)
                     if (service) {
-                      setNewItemDescription(service.name)
+                      setNewItemDescription(service.name || "")
                       if (service.isFlatRate) {
                         setNewItemUnitPrice(service.price.toString())
                         setNewItemQuantity("1")

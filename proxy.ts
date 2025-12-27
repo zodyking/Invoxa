@@ -41,7 +41,6 @@ export default async function proxy(request: NextRequest) {
   // Get and normalize current IP address
   const currentIp = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
                    request.headers.get("x-real-ip") ||
-                   request.ip ||
                    null
   const normalizedCurrentIp = currentIp?.startsWith("::ffff:") 
     ? currentIp.substring(7) 
@@ -61,7 +60,6 @@ export default async function proxy(request: NextRequest) {
     // Server-side IP might be private/internal, so we check both
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
                      request.headers.get("x-real-ip") ||
-                     request.ip ||
                      null
 
     if (ipAddress && user) {

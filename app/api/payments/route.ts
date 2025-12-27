@@ -90,11 +90,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get invoice to retrieve customerId
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { customerId: true },
+    })
+
+    if (!invoice) {
+      return NextResponse.json(
+        { error: "Invoice not found" },
+        { status: 404 }
+      )
+    }
+
     const payment = await prisma.payment.create({
       data: {
         invoiceId,
+        customerId: invoice.customerId,
         amount: parseFloat(amount),
-        paymentMethod: paymentMethod || "cash",
+        method: paymentMethod || "cash",
         receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
         notes,
       },

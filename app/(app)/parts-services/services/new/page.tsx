@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ArrowLeft, Loader2, Plus } from "lucide-react"
 import Link from "next/link"
+import { autoCategorize, serviceCategoryKeywords } from "@/lib/utils/auto-categorize"
 
 interface Category {
   id: string

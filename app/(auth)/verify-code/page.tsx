@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function VerifyCodePage() {
+function VerifyCodePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
@@ -135,6 +135,14 @@ export default function VerifyCodePage() {
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+export default function VerifyCodePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-12">Loading...</div>}>
+      <VerifyCodePageContent />
+    </Suspense>
   )
 }
 

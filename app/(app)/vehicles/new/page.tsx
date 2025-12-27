@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +27,7 @@ interface Customer {
   customerType: string
 }
 
-export default function NewVehiclePage() {
+function NewVehiclePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const customerId = searchParams.get("customerId")
@@ -577,5 +577,13 @@ export default function NewVehiclePage() {
       </form>
     </div>
     </>
+  )
+}
+
+export default function NewVehiclePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-12">Loading...</div>}>
+      <NewVehiclePageContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,7 +42,7 @@ interface LineItem {
   total: number
 }
 
-export default function NewInvoicePage() {
+function NewInvoicePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const serviceLogId = searchParams.get("serviceLogId")
@@ -685,5 +685,13 @@ export default function NewInvoicePage() {
         </form>
       </div>
     </>
+  )
+}
+
+export default function NewInvoicePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-12">Loading...</div>}>
+      <NewInvoicePageContent />
+    </Suspense>
   )
 }

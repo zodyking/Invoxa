@@ -36,7 +36,7 @@ export async function GET(
         },
         attachments: {
           orderBy: {
-            createdAt: "desc",
+            uploadedAt: "desc",
           },
         },
         invoices: {

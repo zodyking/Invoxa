@@ -226,7 +226,7 @@ export async function PATCH(
       })
 
       // Fetch updated user with new roles
-      finalUser = await prisma.user.findUnique({
+      const fetchedUser = await prisma.user.findUnique({
         where: { id },
         include: {
           roles: {
@@ -235,7 +235,14 @@ export async function PATCH(
             },
           },
         },
-      })!
+      })
+      if (!fetchedUser) {
+        return NextResponse.json(
+          { error: "User not found after role update" },
+          { status: 404 }
+        )
+      }
+      finalUser = fetchedUser
     }
 
     // Send email notifications if requested and changes exist

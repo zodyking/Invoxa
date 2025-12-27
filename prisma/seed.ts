@@ -302,8 +302,11 @@ async function main() {
     "Towing/Accessories",
   ]
 
-  for (const categoryName of defaultPartCategories) {
-    await prisma.partCategory.upsert({
+  // Use part categories (they now share the same Category model for both parts and services)
+  const allCategories = defaultPartCategories
+  
+  for (const categoryName of allCategories) {
+    await prisma.category.upsert({
       where: { name: categoryName },
       update: {},
       create: {
@@ -312,48 +315,7 @@ async function main() {
     })
   }
 
-  console.log("✅ Part categories created")
-
-  // Create default service categories (same list as parts, minus Shop Supplies)
-  console.log("Creating default service categories...")
-  const defaultServiceCategories = [
-    "Engine",
-    "Cooling System",
-    "Fuel System",
-    "Ignition & Electrical",
-    "Charging & Starting",
-    "Belts & Hoses",
-    "Exhaust & Emissions",
-    "Transmission & Drivetrain",
-    "Suspension & Steering",
-    "Brakes",
-    "Tires & Wheels",
-    "HVAC (A/C & Heat)",
-    "Body & Exterior",
-    "Interior & Trim",
-    "Lighting",
-    "Filters (Oil/Air/Cabin/Fuel)",
-    "Fluids (Oil/Coolant/Brake/Trans/PS)",
-    "Wiper & Washer",
-    "Batteries",
-    "Diagnostics & Sensors",
-    "Hardware & Fasteners (Bolts/Clips/Gaskets/O-rings)",
-    "Chemicals & Cleaners (Brake clean, degreaser, sealants)",
-    "Hybrid/EV Components",
-    "Towing/Accessories",
-  ]
-
-  for (const categoryName of defaultServiceCategories) {
-    await prisma.serviceCategory.upsert({
-      where: { name: categoryName },
-      update: {},
-      create: {
-        name: categoryName,
-      },
-    })
-  }
-
-  console.log("✅ Service categories created")
+  console.log("✅ Categories created")
 
   console.log("\n🎉 Database seed completed successfully!")
   console.log("\nNext steps:")

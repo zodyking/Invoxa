@@ -27,6 +27,7 @@ interface CatalogItem {
   description: string
   price: number
   isFlatRate?: boolean
+  status: string
 }
 
 type Part = CatalogItem

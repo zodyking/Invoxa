@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function VerifyLoginPage() {
+function VerifyLoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
@@ -175,6 +175,14 @@ export default function VerifyLoginPage() {
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+export default function VerifyLoginPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-12">Loading...</div>}>
+      <VerifyLoginPageContent />
+    </Suspense>
   )
 }
 

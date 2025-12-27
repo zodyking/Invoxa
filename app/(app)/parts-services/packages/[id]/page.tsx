@@ -14,30 +14,22 @@ interface Category {
   name: string
 }
 
-interface Part {
+interface CatalogItem {
   id: string
+  type: "part" | "service"
   partNumber: string | null
-  description: string
-  unitPrice: number
-  category: Category | null
-}
-
-interface Service {
-  id: string
   code: string | null
-  name: string
-  rate: number
-  isFlatRate: boolean
+  name: string | null
+  description: string
+  price: number
   category: Category | null
 }
 
 interface PackageItem {
   id: string
-  type: string
   quantity: number
   priceOverride: number | null
-  part: Part | null
-  service: Service | null
+  catalogItem: CatalogItem
 }
 
 interface Package {

@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     const filename = `invoxa-backup-${timestamp}.zip`
 
     // Return zip file as download
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${filename}"`,
